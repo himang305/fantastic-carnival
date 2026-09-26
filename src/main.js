@@ -1,4 +1,5 @@
 import { Browser, Controller } from "jsnes";
+import marioRomUrl from "../roms/mario.nes?url";
 
 // Global state
 let browser = null;
@@ -139,10 +140,28 @@ async function launchGame() {
 // Load and Initialize ROM
 async function initGame() {
   try {
-    const res = await fetch("/roms/mario.nes");
-    if (!res.ok) {
-      throw new Error(`Failed to load /roms/mario.nes: ${res.statusText}`);
+    const urlsToTry = [marioRomUrl, "/roms/mario.nes", "./roms/mario.nes"];
+    let res = null;
+    let loadedUrl = "";
+
+    for (const url of urlsToTry) {
+      if (!url) continue;
+      try {
+        const testRes = await fetch(url);
+        if (testRes.ok) {
+          res = testRes;
+          loadedUrl = url;
+          break;
+        }
+      } catch {
+        // try next
+      }
     }
+
+    if (!res || !res.ok) {
+      throw new Error(`Failed to load mario.nes from available paths`);
+    }
+
     const buf = await res.arrayBuffer();
     const romData = new Uint8Array(buf);
 
