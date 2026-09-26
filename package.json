@@ -1,0 +1,19 @@
+{
+  "name": "web-game",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "jsnes": "^2.1.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.1"
+  }
+}

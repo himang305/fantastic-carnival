@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Super Mario Bros (NES)</title>
+  <meta name="description" content="Play Super Mario Bros (NES) in pure full screen with TV Remote D-Pad or Keyboard." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+
+<body>
+  <!-- Full Screen Game Viewport -->
+  <div id="game-viewport">
+    <div id="game"></div>
+  </div>
+
+  <!-- Startup Controller Selection Modal -->
+  <div id="startup-modal" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-badge">NES CLASSIC</div>
+      <h1 class="modal-title">SUPER MARIO BROS.</h1>
+      <p class="modal-subtitle">CHOOSE YOUR CONTROLLER TO START</p>
+
+      <div class="controller-options" id="controller-options">
+        <!-- Option 1: TV Remote -->
+        <button class="option-card active" id="opt-tv-remote" data-mode="tv" type="button" tabindex="0">
+          <div class="option-icon">📺</div>
+          <div class="option-info">
+            <div class="option-title">TV Remote D-Pad</div>
+            <div class="option-desc">D-Pad to Move &bull; OK/Enter to Jump &bull; Play/Color/0 to Run</div>
+          </div>
+          <div class="option-tag">TV Mode</div>
+        </button>
+
+        <!-- Option 2: Keyboard -->
+        <button class="option-card" id="opt-keyboard" data-mode="keyboard" type="button" tabindex="0">
+          <div class="option-icon">⌨️</div>
+          <div class="option-info">
+            <div class="option-title">Keyboard (WASD / Arrows)</div>
+            <div class="option-desc">WASD or Arrows to Move &bull; Space / X to Jump &bull; Z to Run</div>
+          </div>
+          <div class="option-tag">PC Mode</div>
+        </button>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn-play-now" id="btn-start" type="button">
+          ▶ LAUNCH FULL SCREEN
+        </button>
+        <div class="modal-hint">Press <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>←</kbd> <kbd>→</kbd> to choose &bull; Press <kbd>Enter</kbd> or <kbd>OK</kbd> to launch</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+
+</html>
