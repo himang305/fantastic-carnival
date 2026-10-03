@@ -270,3 +270,180 @@ html, body {
   font-size: 0.7rem;
   color: #e2e8f0;
 }
+
+/* =========================================
+   Mobile Touch Controls Overlay
+   ========================================= */
+.touch-controls {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  display: none;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 1.5rem 1.25rem env(safe-area-inset-bottom, 1.25rem) 1.25rem;
+  box-sizing: border-box;
+}
+
+/* Display touch controls on touchscreen / mobile devices */
+@media (pointer: coarse), (max-width: 860px) {
+  .touch-controls {
+    display: flex;
+  }
+}
+
+/* D-Pad Container (Cross shape) */
+.dpad-container {
+  pointer-events: auto;
+  position: relative;
+  width: 150px;
+  height: 150px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: manipulation;
+}
+
+.dpad-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1.5px solid rgba(255, 255, 255, 0.35);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: background 0.1s ease, transform 0.08s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dpad-btn:active, .dpad-btn.touch-active {
+  background: rgba(229, 37, 33, 0.65);
+  border-color: #e52521;
+  box-shadow: 0 0 16px rgba(229, 37, 33, 0.8);
+  transform: scale(0.92);
+}
+
+.dpad-up {
+  grid-column: 2;
+  grid-row: 1;
+  border-radius: 12px 12px 0 0;
+}
+
+.dpad-left {
+  grid-column: 1;
+  grid-row: 2;
+  border-radius: 12px 0 0 12px;
+}
+
+.dpad-center {
+  grid-column: 2;
+  grid-row: 2;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.dpad-right {
+  grid-column: 3;
+  grid-row: 2;
+  border-radius: 0 12px 12px 0;
+}
+
+.dpad-down {
+  grid-column: 2;
+  grid-row: 3;
+  border-radius: 0 0 12px 12px;
+}
+
+/* Center Meta Buttons (Select & Start) */
+.meta-container {
+  pointer-events: auto;
+  display: flex;
+  gap: 0.9rem;
+  margin-bottom: 0.6rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.meta-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #e2e8f0;
+  font-family: var(--font-retro);
+  font-size: 0.58rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 16px;
+  cursor: pointer;
+  outline: none;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: all 0.1s ease;
+}
+
+.meta-btn:active, .meta-btn.touch-active {
+  background: var(--coin-gold);
+  color: #000;
+  box-shadow: 0 0 12px rgba(253, 184, 19, 0.7);
+  transform: scale(0.92);
+}
+
+/* Action Buttons (A & B arcade style) */
+.action-container {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  transform: rotate(-15deg);
+  margin-bottom: 1.2rem;
+  margin-right: 0.5rem;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.action-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.4);
+  font-family: var(--font-retro);
+  font-size: 1.05rem;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  outline: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.action-b {
+  background: linear-gradient(135deg, rgba(229, 37, 33, 0.85), rgba(183, 28, 28, 0.9));
+}
+
+.action-a {
+  background: linear-gradient(135deg, rgba(253, 184, 19, 0.85), rgba(217, 119, 6, 0.9));
+  color: #111;
+  margin-top: -1.75rem;
+}
+
+.action-btn:active, .action-btn.touch-active {
+  transform: scale(0.88);
+  box-shadow: 0 2px 10px rgba(255, 255, 255, 0.4);
+}
+

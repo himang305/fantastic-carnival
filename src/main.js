@@ -341,6 +341,63 @@ function setupModalEvents() {
   });
 }
 
+// Setup Touch Controls for Mobile Screen
+function setupTouchControls() {
+  const BUTTON_MAP = {
+    up: Controller.BUTTON_UP,
+    down: Controller.BUTTON_DOWN,
+    left: Controller.BUTTON_LEFT,
+    right: Controller.BUTTON_RIGHT,
+    a: Controller.BUTTON_A,
+    b: Controller.BUTTON_B,
+    start: Controller.BUTTON_START,
+    select: Controller.BUTTON_SELECT,
+  };
+
+  const touchButtons = document.querySelectorAll(
+    "#touch-controls button[data-btn]"
+  );
+
+  touchButtons.forEach((btn) => {
+    const btnKey = btn.getAttribute("data-btn");
+    const nesButton = BUTTON_MAP[btnKey];
+
+    if (nesButton === undefined) return;
+
+    const handlePress = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.add("touch-active");
+      if (browser?.nes) {
+        browser.nes.buttonDown(1, nesButton);
+      }
+      if (navigator.vibrate) {
+        try {
+          navigator.vibrate(15);
+        } catch {}
+      }
+    };
+
+    const handleRelease = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      btn.classList.remove("touch-active");
+      if (browser?.nes) {
+        browser.nes.buttonUp(1, nesButton);
+      }
+    };
+
+    btn.addEventListener("touchstart", handlePress, { passive: false });
+    btn.addEventListener("touchend", handleRelease, { passive: false });
+    btn.addEventListener("touchcancel", handleRelease, { passive: false });
+    btn.addEventListener("mousedown", handlePress);
+    btn.addEventListener("mouseup", handleRelease);
+    btn.addEventListener("mouseleave", handleRelease);
+  });
+}
+
 // Start everything
 setupModalEvents();
+setupTouchControls();
 initGame();
+

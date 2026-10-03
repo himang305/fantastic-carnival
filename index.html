@@ -16,6 +16,30 @@
   <!-- Full Screen Game Viewport -->
   <div id="game-viewport">
     <div id="game"></div>
+
+    <!-- On-Screen Virtual Touch Controller for Mobile -->
+    <div id="touch-controls" class="touch-controls">
+      <!-- Left D-Pad -->
+      <div class="dpad-container" id="touch-dpad">
+        <button class="dpad-btn dpad-up" data-btn="up" aria-label="Up">▲</button>
+        <button class="dpad-btn dpad-left" data-btn="left" aria-label="Left">◀</button>
+        <div class="dpad-center"></div>
+        <button class="dpad-btn dpad-right" data-btn="right" aria-label="Right">▶</button>
+        <button class="dpad-btn dpad-down" data-btn="down" aria-label="Down">▼</button>
+      </div>
+
+      <!-- Center Start / Select Buttons -->
+      <div class="meta-container">
+        <button class="meta-btn" data-btn="select" id="btn-touch-select" aria-label="Select">SELECT</button>
+        <button class="meta-btn" data-btn="start" id="btn-touch-start" aria-label="Start">START</button>
+      </div>
+
+      <!-- Right Action Buttons (B & A) -->
+      <div class="action-container" id="touch-actions">
+        <button class="action-btn action-b" data-btn="b" aria-label="B button">B</button>
+        <button class="action-btn action-a" data-btn="a" aria-label="A button">A</button>
+      </div>
+    </div>
   </div>
 
   <!-- Startup Controller Selection Modal -->
