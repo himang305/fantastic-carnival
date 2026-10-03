@@ -4,12 +4,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Super Mario Bros (NES)</title>
-  <meta name="description" content="Play Super Mario Bros (NES) in pure full screen with TV Remote D-Pad or Keyboard." />
+  <title>1200 in 1 (NES Retro Collection)</title>
+  <meta name="description" content="Play 1200 in 1 NES retro classic collection directly in your web browser on your laptop or PC." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/assets/index-BhAavjE7.js"></script>
+  <script type="module" crossorigin src="/assets/index-BlGx7T2l.js"></script>
   <link rel="stylesheet" crossorigin href="/assets/index-DBf8Fgpo.css">
 </head>
 
@@ -22,29 +22,29 @@
   <!-- Startup Controller Selection Modal -->
   <div id="startup-modal" class="modal-backdrop">
     <div class="modal-card">
-      <div class="modal-badge">NES CLASSIC</div>
-      <h1 class="modal-title">SUPER MARIO BROS.</h1>
-      <p class="modal-subtitle">CHOOSE YOUR CONTROLLER TO START</p>
+      <div class="modal-badge">NES RETRO COLLECTION</div>
+      <h1 class="modal-title">1200 IN 1</h1>
+      <p class="modal-subtitle">PLAY DIRECTLY IN BROWSER ON LAPTOP / PC</p>
 
       <div class="controller-options" id="controller-options">
-        <!-- Option 1: TV Remote -->
-        <button class="option-card active" id="opt-tv-remote" data-mode="tv" type="button" tabindex="0">
+        <!-- Option 1: Keyboard (Laptop / PC) -->
+        <button class="option-card active" id="opt-keyboard" data-mode="keyboard" type="button" tabindex="0">
+          <div class="option-icon">💻</div>
+          <div class="option-info">
+            <div class="option-title">Laptop / PC Keyboard</div>
+            <div class="option-desc">WASD / Arrow Keys to Move &bull; Space or X to Jump/A &bull; Z to B &bull; Enter for Start</div>
+          </div>
+          <div class="option-tag">Recommended</div>
+        </button>
+
+        <!-- Option 2: TV Remote -->
+        <button class="option-card" id="opt-tv-remote" data-mode="tv" type="button" tabindex="0">
           <div class="option-icon">📺</div>
           <div class="option-info">
             <div class="option-title">TV Remote D-Pad</div>
             <div class="option-desc">D-Pad to Move &bull; OK/Enter to Jump &bull; Play/Color/0 to Run</div>
           </div>
           <div class="option-tag">TV Mode</div>
-        </button>
-
-        <!-- Option 2: Keyboard -->
-        <button class="option-card" id="opt-keyboard" data-mode="keyboard" type="button" tabindex="0">
-          <div class="option-icon">⌨️</div>
-          <div class="option-info">
-            <div class="option-title">Keyboard (WASD / Arrows)</div>
-            <div class="option-desc">WASD or Arrows to Move &bull; Space / X to Jump &bull; Z to Run</div>
-          </div>
-          <div class="option-tag">PC Mode</div>
         </button>
       </div>
 

@@ -1,9 +1,119 @@
-import { Browser, Controller } from "jsnes";
-import marioRomUrl from "../roms/mario.nes?url";
+import { Browser, Controller, NES } from "jsnes";
+import gameRomUrl from "../roms/1200-in-1.nes?url";
+
+// Register custom Mapper 227 for 1200-in-1 multicart support in JSNES
+function registerMapper227() {
+  // Use a temporary NES instance to retrieve the base NoMapper class
+  const tempNes = new NES({ onFrame: () => {}, onAudioSample: () => {} });
+  const dummyHeader = new Uint8Array([
+    0x4e, 0x45, 0x53, 0x1a, 0x01, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+    ...new Array(16384).fill(0)
+  ]);
+  tempNes.loadROM(dummyHeader);
+  const NoMapper = Object.getPrototypeOf(tempNes.mmap).constructor;
+
+  // Implementation of iNES Mapper 227 (BMC 1200-in-1 multicart)
+  class Mapper227 extends NoMapper {
+    constructor(nesInstance) {
+      super(nesInstance);
+    }
+
+    write(address, value) {
+      if (address < 0x8000) {
+        super.write(address, value);
+        return;
+      }
+      this.sync(address);
+    }
+
+    sync(addr) {
+      // Bit decoding according to NESDev Mapper 227 spec:
+      // addr bits: [A~1... .mLQ OQQP PpMS]
+      // bit 0: S (PRG A14 mode)
+      // bit 1: M (mirroring: 0 = Vertical, 1 = Horizontal)
+      // bit 2: p (PRG A14)
+      // bits 4..3: PP (PRG A16..A15)
+      // bits 6..5: QQ (PRG A18..A17)
+      // bit 7: O (0: UNROM-like mode, 1: NROM mode)
+      // bit 8: Q (PRG A19)
+      // bit 9: L (Value for PRG A16..14 when CPU A14=1 and O=0)
+      const s = addr & 1;
+      const m = (addr >> 1) & 1;
+      const p = (addr >> 2) & 1;
+      const pp = (addr >> 3) & 3;
+      const qq = (addr >> 5) & 3;
+      const o = (addr >> 7) & 1;
+      const Q = (addr >> 8) & 1;
+      const l = (addr >> 9) & 1;
+
+      // Mirroring: bit 1 (0: Vertical, 1: Horizontal)
+      if (m === 1) {
+        this.nes.ppu.setMirroring(this.nes.rom.HORIZONTAL_MIRRORING);
+      } else {
+        this.nes.ppu.setMirroring(this.nes.rom.VERTICAL_MIRRORING);
+      }
+
+      const inner = (pp << 1) | p;
+      const outer = (Q << 2) | qq;
+      const fullBank = (outer << 3) | inner;
+
+      if (o === 1) {
+        // NROM modes
+        if (s === 0) {
+          // NROM-128: 16 KiB inner bank mirrored at $8000-$BFFF and $C000-$FFFF
+          this.loadRomBank(fullBank, 0x8000);
+          this.loadRomBank(fullBank, 0xc000);
+        } else {
+          // NROM-256: 32 KiB inner bank mapped across $8000-$FFFF
+          const bank32 = (outer << 2) | pp;
+          this.load32kRomBank(bank32, 0x8000);
+        }
+      } else {
+        // UNROM modes
+        const bank8000 = (s === 1) ? ((outer << 3) | (pp << 1)) : fullBank;
+        this.loadRomBank(bank8000, 0x8000);
+        const fixedInner = (l === 1) ? 7 : 0;
+        const bankC000 = (outer << 3) | fixedInner;
+        this.loadRomBank(bankC000, 0xc000);
+      }
+    }
+
+    loadROM() {
+      // Power-on reset default: inner bank 0, outer bank 0 at $8000 and $C000
+      this.loadRomBank(0, 0x8000);
+      this.loadRomBank(0, 0xc000);
+      this.loadCHRROM();
+      this.nes.cpu.requestIrq(this.nes.cpu.IRQ_RESET);
+    }
+  }
+
+  // Hook into ROM prototype to handle mapper 227
+  const romProto = tempNes.rom.constructor.prototype;
+  const originalCreateMapper = romProto.createMapper;
+  const originalMapperSupported = romProto.mapperSupported;
+
+  romProto.createMapper = function () {
+    if (this.mapperType === 227) {
+      return new Mapper227(this.nes);
+    }
+    return originalCreateMapper.call(this);
+  };
+
+  romProto.mapperSupported = function () {
+    if (this.mapperType === 227) {
+      return true;
+    }
+    return originalMapperSupported.call(this);
+  };
+}
+
+// Initialize custom mapper
+registerMapper227();
 
 // Global state
 let browser = null;
-let currentMode = "tv"; // 'tv' or 'keyboard'
+let currentMode = "keyboard"; // Default to keyboard for easy laptop play
 let audioUnlocked = false;
 
 // DOM Elements
@@ -13,7 +123,7 @@ const optTvRemote = document.getElementById("opt-tv-remote");
 const optKeyboard = document.getElementById("opt-keyboard");
 const btnStart = document.getElementById("btn-start");
 
-// Keyboard Mode Key Mappings
+// Keyboard Mode Key Mappings (Optimized for laptops: WASD / Arrows, Space/X, Z, Enter)
 const KEYBOARD_MAPPINGS = {
   // Arrow Keys
   38: [1, Controller.BUTTON_UP, "Up"],
@@ -27,24 +137,23 @@ const KEYBOARD_MAPPINGS = {
   65: [1, Controller.BUTTON_LEFT, "A"],
   68: [1, Controller.BUTTON_RIGHT, "D"],
 
-  // Jump: X, K, Space
+  // Button A (Jump / Select in menu): Space, X, K
+  32: [1, Controller.BUTTON_A, "Space"],
   88: [1, Controller.BUTTON_A, "X"],
   75: [1, Controller.BUTTON_A, "K"],
-  32: [1, Controller.BUTTON_A, "Space"],
 
-  // Run / Fireball: Z, J
+  // Button B (Fire / Cancel): Z, J
   90: [1, Controller.BUTTON_B, "Z"],
   74: [1, Controller.BUTTON_B, "J"],
 
-  // Start & Select
+  // Start & Select: Enter, Shift, Tab
   13: [1, Controller.BUTTON_START, "Enter"],
   16: [1, Controller.BUTTON_SELECT, "Shift"],
   9: [1, Controller.BUTTON_SELECT, "Tab"],
 };
 
-// TV Remote Mode Key Mappings (Standard TV D-Pad, OK button, Media/Color keys)
+// TV Remote Mode Key Mappings
 const TV_REMOTE_MAPPINGS = {
-  // Standard D-Pad & Android TV / Tizen / WebOS D-Pad codes
   38: [1, Controller.BUTTON_UP, "Up"],
   19: [1, Controller.BUTTON_UP, "DPadUp"],
   40: [1, Controller.BUTTON_DOWN, "Down"],
@@ -54,13 +163,10 @@ const TV_REMOTE_MAPPINGS = {
   39: [1, Controller.BUTTON_RIGHT, "Right"],
   22: [1, Controller.BUTTON_RIGHT, "DPadRight"],
 
-  // Center OK / Select Button on TV Remote -> Button A (Jump)
   13: [1, Controller.BUTTON_A, "OK"],
   23: [1, Controller.BUTTON_A, "Select"],
   65385: [1, Controller.BUTTON_A, "Enter"],
 
-  // Media / Color / Number Keys -> Button B (Run / Fireball)
-  // FastForward (417), Play (415), Red (403), Blue (406), Number 0 (48), Number 2 (50)
   417: [1, Controller.BUTTON_B, "FastForward"],
   415: [1, Controller.BUTTON_B, "Play"],
   403: [1, Controller.BUTTON_B, "Red"],
@@ -70,13 +176,11 @@ const TV_REMOTE_MAPPINGS = {
   50: [1, Controller.BUTTON_B, "2"],
   90: [1, Controller.BUTTON_B, "Z"],
 
-  // Pause / Play / Menu / Yellow / Number 1 -> Start
   179: [1, Controller.BUTTON_START, "PlayPause"],
   405: [1, Controller.BUTTON_START, "Yellow"],
   49: [1, Controller.BUTTON_START, "1"],
   18: [1, Controller.BUTTON_START, "Menu"],
 
-  // Back / Green / Return -> Select
   10009: [1, Controller.BUTTON_SELECT, "Back"],
   27: [1, Controller.BUTTON_SELECT, "Escape"],
   404: [1, Controller.BUTTON_SELECT, "Green"],
@@ -86,12 +190,12 @@ const TV_REMOTE_MAPPINGS = {
 // Selection helper
 function selectMode(mode) {
   currentMode = mode;
-  if (mode === "tv") {
-    optTvRemote.classList.add("active");
-    optKeyboard.classList.remove("active");
-  } else {
+  if (mode === "keyboard") {
     optKeyboard.classList.add("active");
     optTvRemote.classList.remove("active");
+  } else {
+    optTvRemote.classList.add("active");
+    optKeyboard.classList.remove("active");
   }
 }
 
@@ -109,7 +213,7 @@ function enterFullScreen() {
 
 // Launch Game in Full Screen
 async function launchGame() {
-  // Enter full screen
+  // Enter full screen if user prefers
   enterFullScreen();
 
   // Hide startup modal completely
@@ -126,9 +230,9 @@ async function launchGame() {
     }
   }
 
-  // Apply chosen controller mappings
+  // Apply chosen controller mappings (defaulting to laptop keyboard)
   const mappings =
-    currentMode === "tv" ? TV_REMOTE_MAPPINGS : KEYBOARD_MAPPINGS;
+    currentMode === "keyboard" ? KEYBOARD_MAPPINGS : TV_REMOTE_MAPPINGS;
   if (browser) {
     browser.keyboard.setKeys(mappings);
     browser.fitInParent();
@@ -140,9 +244,13 @@ async function launchGame() {
 // Load and Initialize ROM
 async function initGame() {
   try {
-    const urlsToTry = [marioRomUrl, "/roms/mario.nes", "./roms/mario.nes"];
+    const urlsToTry = [
+      gameRomUrl,
+      "/roms/1200-in-1.nes",
+      "./roms/1200-in-1.nes",
+      "../roms/1200-in-1.nes"
+    ];
     let res = null;
-    let loadedUrl = "";
 
     for (const url of urlsToTry) {
       if (!url) continue;
@@ -150,7 +258,6 @@ async function initGame() {
         const testRes = await fetch(url);
         if (testRes.ok) {
           res = testRes;
-          loadedUrl = url;
           break;
         }
       } catch {
@@ -159,7 +266,7 @@ async function initGame() {
     }
 
     if (!res || !res.ok) {
-      throw new Error(`Failed to load mario.nes from available paths`);
+      throw new Error("Failed to load 1200-in-1.nes from available paths");
     }
 
     const buf = await res.arrayBuffer();
@@ -173,8 +280,8 @@ async function initGame() {
       },
     });
 
-    // Start with TV remote mappings by default
-    browser.keyboard.setKeys(TV_REMOTE_MAPPINGS);
+    // Set keyboard mappings by default
+    browser.keyboard.setKeys(KEYBOARD_MAPPINGS);
 
     setTimeout(() => {
       if (browser) browser.fitInParent();
@@ -186,25 +293,20 @@ async function initGame() {
 
 // Setup Event Listeners for Startup Modal
 function setupModalEvents() {
-  // Click option cards
-  optTvRemote.addEventListener("click", () => {
-    selectMode("tv");
-  });
-
   optKeyboard.addEventListener("click", () => {
     selectMode("keyboard");
   });
 
-  // Launch button
+  optTvRemote.addEventListener("click", () => {
+    selectMode("tv");
+  });
+
   btnStart.addEventListener("click", () => {
     launchGame();
   });
 
-  // Keyboard and TV D-Pad navigation for modal
   window.addEventListener("keydown", (e) => {
-    // If modal is still visible, navigate options
     if (!audioUnlocked && !startupModal.classList.contains("hidden")) {
-      // Up/Down/Left/Right changes selection
       if (
         e.keyCode === 38 ||
         e.keyCode === 19 ||
@@ -212,7 +314,7 @@ function setupModalEvents() {
         e.keyCode === 21
       ) {
         e.preventDefault();
-        selectMode("tv");
+        selectMode("keyboard");
       } else if (
         e.keyCode === 40 ||
         e.keyCode === 20 ||
@@ -220,16 +322,14 @@ function setupModalEvents() {
         e.keyCode === 22
       ) {
         e.preventDefault();
-        selectMode("keyboard");
+        selectMode("tv");
       } else if (e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 32) {
-        // Enter / OK / Space launches game
         e.preventDefault();
         launchGame();
       }
     }
   });
 
-  // Keep screen fit on resize or fullscreen toggle
   window.addEventListener("resize", () => {
     if (browser) browser.fitInParent();
   });
