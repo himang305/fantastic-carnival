@@ -18,7 +18,8 @@
   -webkit-font-smoothing: antialiased;
 }
 
-html, body {
+html,
+body {
   width: 100vw;
   height: 100vh;
   overflow: hidden;
@@ -90,7 +91,7 @@ html, body {
   border: 1px solid var(--border-color);
   border-radius: 20px;
   padding: 2.25rem 2rem;
-  box-shadow: 
+  box-shadow:
     0 25px 60px rgba(0, 0, 0, 0.8),
     0 0 0 1px rgba(255, 255, 255, 0.05),
     0 0 35px rgba(229, 37, 33, 0.15);
@@ -170,7 +171,9 @@ html, body {
   font-family: var(--font-ui);
 }
 
-.option-card:hover, .option-card:focus, .option-card.active {
+.option-card:hover,
+.option-card:focus,
+.option-card.active {
   background: rgba(229, 37, 33, 0.12);
   border-color: var(--mario-red);
   transform: translateY(-2px) scale(1.01);
@@ -240,15 +243,23 @@ html, body {
   animation: pulse-launch 1.8s infinite;
 }
 
-.btn-play-now:hover, .btn-play-now:focus {
+.btn-play-now:hover,
+.btn-play-now:focus {
   transform: translateY(-2px) scale(1.02);
   box-shadow: 0 14px 32px rgba(229, 37, 33, 0.8);
   outline: none;
 }
 
 @keyframes pulse-launch {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.02); }
+
+  0%,
+  100% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.02);
+  }
 }
 
 .modal-hint {
@@ -287,7 +298,8 @@ html, body {
 }
 
 /* Display touch controls on touchscreen / mobile devices */
-@media (pointer: coarse), (max-width: 860px) {
+@media (pointer: coarse),
+(max-width: 860px) {
   .touch-controls {
     display: flex;
   }
@@ -326,7 +338,8 @@ html, body {
   -webkit-user-select: none;
 }
 
-.dpad-btn:active, .dpad-btn.touch-active {
+.dpad-btn:active,
+.dpad-btn.touch-active {
   background: rgba(229, 37, 33, 0.65);
   border-color: #e52521;
   box-shadow: 0 0 16px rgba(229, 37, 33, 0.8);
@@ -392,7 +405,8 @@ html, body {
   transition: all 0.1s ease;
 }
 
-.meta-btn:active, .meta-btn.touch-active {
+.meta-btn:active,
+.meta-btn.touch-active {
   background: var(--coin-gold);
   color: #000;
   box-shadow: 0 0 12px rgba(253, 184, 19, 0.7);
@@ -404,17 +418,16 @@ html, body {
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  transform: rotate(-15deg);
-  margin-bottom: 1.2rem;
+  gap: 1rem;
+  margin-bottom: 3.2rem;
   margin-right: 0.5rem;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .action-btn {
-  width: 68px;
-  height: 68px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   border: 2px solid rgba(255, 255, 255, 0.4);
   font-family: var(--font-retro);
@@ -439,11 +452,10 @@ html, body {
 .action-a {
   background: linear-gradient(135deg, rgba(253, 184, 19, 0.85), rgba(217, 119, 6, 0.9));
   color: #111;
-  margin-top: -1.75rem;
 }
 
-.action-btn:active, .action-btn.touch-active {
+.action-btn:active,
+.action-btn.touch-active {
   transform: scale(0.88);
   box-shadow: 0 2px 10px rgba(255, 255, 255, 0.4);
 }
-

@@ -123,33 +123,54 @@ const optTvRemote = document.getElementById("opt-tv-remote");
 const optKeyboard = document.getElementById("opt-keyboard");
 const btnStart = document.getElementById("btn-start");
 
-// Keyboard Mode Key Mappings (Optimized for laptops: WASD / Arrows, Space/X, Z, Enter)
+// Keyboard Mode Key Mappings
+// Player 1: WASD / Arrow Keys to move, Space/X = A button, Z = B button, Enter = Start, Shift = Select
+// Player 2: IJKL to move, U = A button, O = B button, P = Start, ; = Select
 const KEYBOARD_MAPPINGS = {
-  // Arrow Keys
+  // --- PLAYER 1 ---
+
+  // P1 Arrow Keys
   38: [1, Controller.BUTTON_UP, "Up"],
   40: [1, Controller.BUTTON_DOWN, "Down"],
   37: [1, Controller.BUTTON_LEFT, "Left"],
   39: [1, Controller.BUTTON_RIGHT, "Right"],
 
-  // WASD Keys
+  // P1 WASD
   87: [1, Controller.BUTTON_UP, "W"],
   83: [1, Controller.BUTTON_DOWN, "S"],
   65: [1, Controller.BUTTON_LEFT, "A"],
   68: [1, Controller.BUTTON_RIGHT, "D"],
 
-  // Button A (Jump / Select in menu): Space, X, K
+  // P1 Button A: Space, X
   32: [1, Controller.BUTTON_A, "Space"],
   88: [1, Controller.BUTTON_A, "X"],
-  75: [1, Controller.BUTTON_A, "K"],
 
-  // Button B (Fire / Cancel): Z, J
+  // P1 Button B: Z
   90: [1, Controller.BUTTON_B, "Z"],
-  74: [1, Controller.BUTTON_B, "J"],
 
-  // Start & Select: Enter, Shift, Tab
+  // P1 Start & Select: Enter, Shift
   13: [1, Controller.BUTTON_START, "Enter"],
   16: [1, Controller.BUTTON_SELECT, "Shift"],
-  9: [1, Controller.BUTTON_SELECT, "Tab"],
+
+  // --- PLAYER 2 ---
+
+  // P2 IJKL movement
+  73: [2, Controller.BUTTON_UP, "I"],
+  75: [2, Controller.BUTTON_DOWN, "K"],
+  74: [2, Controller.BUTTON_LEFT, "J"],
+  76: [2, Controller.BUTTON_RIGHT, "L"],
+
+  // P2 Button A: U
+  85: [2, Controller.BUTTON_A, "U"],
+
+  // P2 Button B: O
+  79: [2, Controller.BUTTON_B, "O"],
+
+  // P2 Start: P
+  80: [2, Controller.BUTTON_START, "P"],
+
+  // P2 Select: semicolon (;)
+  186: [2, Controller.BUTTON_SELECT, "Semicolon"],
 };
 
 // TV Remote Mode Key Mappings
