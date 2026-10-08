@@ -34,10 +34,18 @@
         <button class="meta-btn" data-btn="start" id="btn-touch-start" aria-label="Start">START</button>
       </div>
 
-      <!-- Right Action Buttons (B & A) -->
+      <!-- Right Action Buttons (SNES: Y, X, B, A; NES: B, A) -->
       <div class="action-container" id="touch-actions">
-        <button class="action-btn action-b" data-btn="b" aria-label="B button">B</button>
-        <button class="action-btn action-a" data-btn="a" aria-label="A button">A</button>
+        <div class="action-row action-row-top">
+          <button class="action-btn action-x snes-btn" data-btn="x" aria-label="X button">X</button>
+        </div>
+        <div class="action-row action-row-mid">
+          <button class="action-btn action-y snes-btn" data-btn="y" aria-label="Y button">Y</button>
+          <button class="action-btn action-a" data-btn="a" aria-label="A button">A</button>
+        </div>
+        <div class="action-row action-row-bot">
+          <button class="action-btn action-b" data-btn="b" aria-label="B button">B</button>
+        </div>
       </div>
     </div>
   </div>
@@ -45,9 +53,26 @@
   <!-- Startup Controller Selection Modal -->
   <div id="startup-modal" class="modal-backdrop">
     <div class="modal-card">
-      <div class="modal-badge">NES RETRO COLLECTION</div>
-      <h1 class="modal-title">1200 IN 1</h1>
-      <p class="modal-subtitle">PLAY DIRECTLY IN BROWSER ON LAPTOP / PC</p>
+      <div class="modal-badge">RETRO ARCADE (NES & SNES)</div>
+      <h1 class="modal-title">RETRO COLLECTION</h1>
+      <p class="modal-subtitle">PLAY DIRECTLY IN BROWSER ON LAPTOP / PC / MOBILE</p>
+
+      <!-- Game Selection Section -->
+      <div class="rom-selection-section">
+        <label for="rom-select" class="rom-label">SELECT GAME</label>
+        <div class="select-wrapper">
+          <select id="rom-select" class="rom-select" aria-label="Select NES Game">
+            <!-- Populated dynamically via main.js -->
+          </select>
+        </div>
+        <div class="custom-rom-wrapper">
+          <label for="rom-file-input" class="btn-custom-rom">
+            📁 Load Custom ROM (.nes, .sfc, .smc)
+          </label>
+          <input type="file" id="rom-file-input" accept=".nes,.sfc,.smc" style="display: none;" />
+          <span id="custom-rom-name" class="custom-rom-name"></span>
+        </div>
+      </div>
 
       <div class="controller-options" id="controller-options">
         <!-- Option 1: Keyboard (Laptop / PC) -->
@@ -55,7 +80,7 @@
           <div class="option-icon">💻</div>
           <div class="option-info">
             <div class="option-title">Laptop / PC Keyboard</div>
-            <div class="option-desc">WASD / Arrow Keys to Move &bull; Space or X to Jump/A &bull; Z to B &bull; Enter for Start</div>
+            <div class="option-desc">P1: WASD / Space, X (A) &bull; Z (B) &bull; Enter &bull; P2: IJKL / U, O</div>
           </div>
           <div class="option-tag">Recommended</div>
         </button>
@@ -73,12 +98,17 @@
 
       <div class="modal-footer">
         <button class="btn-play-now" id="btn-start" type="button">
-          ▶ LAUNCH FULL SCREEN
+          ▶ LAUNCH GAME
         </button>
-        <div class="modal-hint">Press <kbd>↑</kbd> <kbd>↓</kbd> or <kbd>←</kbd> <kbd>→</kbd> to choose &bull; Press <kbd>Enter</kbd> or <kbd>OK</kbd> to launch</div>
+        <div class="modal-hint">Press <kbd>Enter</kbd> to launch &bull; Tap buttons on mobile</div>
       </div>
     </div>
   </div>
+
+  <!-- In-Game Floating Switch Game Button -->
+  <button id="btn-switch-game" class="btn-switch-game" aria-label="Switch Game" title="Switch Game">
+    🎮 SWITCH GAME
+  </button>
 
   <script type="module" src="/src/main.js"></script>
 </body>

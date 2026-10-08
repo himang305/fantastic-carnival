@@ -1,9 +1,37 @@
 import { Browser, Controller, NES } from "jsnes";
-import gameRomUrl from "../roms/1200-in-1.nes?url";
+import { Nostalgist } from "nostalgist";
+
+// Auto-discover all NES and SNES rom files in ../roms/
+const nesModules = import.meta.glob("../roms/*.nes", { eager: true, query: "?url" });
+const sfcModules = import.meta.glob("../roms/*.sfc", { eager: true, query: "?url" });
+const smcModules = import.meta.glob("../roms/*.smc", { eager: true, query: "?url" });
+
+const allRomModules = { ...nesModules, ...sfcModules, ...smcModules };
+
+// Build ROM list with friendly display names and system type
+const ROM_LIST = Object.entries(allRomModules).map(([path, mod]) => {
+  const filename = path.split("/").pop();
+  const ext = filename.split(".").pop().toLowerCase();
+  const isSnes = ext === "sfc" || ext === "smc";
+  const system = isSnes ? "SNES" : "NES";
+  const displayName = filename.replace(/\.(nes|sfc|smc)$/i, "");
+  const url = typeof mod === "string" ? mod : mod.default;
+  return {
+    filename,
+    displayName: `[${system}] ${displayName}`,
+    rawTitle: displayName,
+    system,
+    url,
+  };
+});
+
+// Helper: format title
+function formatGameTitle(title) {
+  return title.replace(/_/g, " ");
+}
 
 // Register custom Mapper 227 for 1200-in-1 multicart support in JSNES
 function registerMapper227() {
-  // Use a temporary NES instance to retrieve the base NoMapper class
   const tempNes = new NES({ onFrame: () => {}, onAudioSample: () => {} });
   const dummyHeader = new Uint8Array([
     0x4e, 0x45, 0x53, 0x1a, 0x01, 0x00, 0x00, 0x00,
@@ -13,7 +41,6 @@ function registerMapper227() {
   tempNes.loadROM(dummyHeader);
   const NoMapper = Object.getPrototypeOf(tempNes.mmap).constructor;
 
-  // Implementation of iNES Mapper 227 (BMC 1200-in-1 multicart)
   class Mapper227 extends NoMapper {
     constructor(nesInstance) {
       super(nesInstance);
@@ -28,16 +55,6 @@ function registerMapper227() {
     }
 
     sync(addr) {
-      // Bit decoding according to NESDev Mapper 227 spec:
-      // addr bits: [A~1... .mLQ OQQP PpMS]
-      // bit 0: S (PRG A14 mode)
-      // bit 1: M (mirroring: 0 = Vertical, 1 = Horizontal)
-      // bit 2: p (PRG A14)
-      // bits 4..3: PP (PRG A16..A15)
-      // bits 6..5: QQ (PRG A18..A17)
-      // bit 7: O (0: UNROM-like mode, 1: NROM mode)
-      // bit 8: Q (PRG A19)
-      // bit 9: L (Value for PRG A16..14 when CPU A14=1 and O=0)
       const s = addr & 1;
       const m = (addr >> 1) & 1;
       const p = (addr >> 2) & 1;
@@ -47,7 +64,6 @@ function registerMapper227() {
       const Q = (addr >> 8) & 1;
       const l = (addr >> 9) & 1;
 
-      // Mirroring: bit 1 (0: Vertical, 1: Horizontal)
       if (m === 1) {
         this.nes.ppu.setMirroring(this.nes.rom.HORIZONTAL_MIRRORING);
       } else {
@@ -59,18 +75,14 @@ function registerMapper227() {
       const fullBank = (outer << 3) | inner;
 
       if (o === 1) {
-        // NROM modes
         if (s === 0) {
-          // NROM-128: 16 KiB inner bank mirrored at $8000-$BFFF and $C000-$FFFF
           this.loadRomBank(fullBank, 0x8000);
           this.loadRomBank(fullBank, 0xc000);
         } else {
-          // NROM-256: 32 KiB inner bank mapped across $8000-$FFFF
           const bank32 = (outer << 2) | pp;
           this.load32kRomBank(bank32, 0x8000);
         }
       } else {
-        // UNROM modes
         const bank8000 = (s === 1) ? ((outer << 3) | (pp << 1)) : fullBank;
         this.loadRomBank(bank8000, 0x8000);
         const fixedInner = (l === 1) ? 7 : 0;
@@ -80,7 +92,6 @@ function registerMapper227() {
     }
 
     loadROM() {
-      // Power-on reset default: inner bank 0, outer bank 0 at $8000 and $C000
       this.loadRomBank(0, 0x8000);
       this.loadRomBank(0, 0xc000);
       this.loadCHRROM();
@@ -88,7 +99,6 @@ function registerMapper227() {
     }
   }
 
-  // Hook into ROM prototype to handle mapper 227
   const romProto = tempNes.rom.constructor.prototype;
   const originalCreateMapper = romProto.createMapper;
   const originalMapperSupported = romProto.mapperSupported;
@@ -108,13 +118,15 @@ function registerMapper227() {
   };
 }
 
-// Initialize custom mapper
 registerMapper227();
 
 // Global state
-let browser = null;
-let currentMode = "keyboard"; // Default to keyboard for easy laptop play
+let activeSystem = "NES"; // 'NES' or 'SNES'
+let jsnesBrowser = null;
+let nostalgistInstance = null;
+let currentMode = "keyboard";
 let audioUnlocked = false;
+let currentSelectedRom = ROM_LIST.length > 0 ? ROM_LIST[0] : null;
 
 // DOM Elements
 const gameContainer = document.getElementById("game");
@@ -122,13 +134,14 @@ const startupModal = document.getElementById("startup-modal");
 const optTvRemote = document.getElementById("opt-tv-remote");
 const optKeyboard = document.getElementById("opt-keyboard");
 const btnStart = document.getElementById("btn-start");
+const romSelect = document.getElementById("rom-select");
+const romFileInput = document.getElementById("rom-file-input");
+const customRomName = document.getElementById("custom-rom-name");
+const btnSwitchGame = document.getElementById("btn-switch-game");
+const modalTitle = document.querySelector(".modal-title");
 
-// Keyboard Mode Key Mappings
-// Player 1: WASD / Arrow Keys to move, Space/X = A button, Z = B button, Enter = Start, Shift = Select
-// Player 2: IJKL to move, U = A button, O = B button, P = Start, ; = Select
-const KEYBOARD_MAPPINGS = {
-  // --- PLAYER 1 ---
-
+// NES Keyboard Mappings
+const NES_KEYBOARD_MAPPINGS = {
   // P1 Arrow Keys
   38: [1, Controller.BUTTON_UP, "Up"],
   40: [1, Controller.BUTTON_DOWN, "Down"],
@@ -141,40 +154,26 @@ const KEYBOARD_MAPPINGS = {
   65: [1, Controller.BUTTON_LEFT, "A"],
   68: [1, Controller.BUTTON_RIGHT, "D"],
 
-  // P1 Button A: Space, X
+  // P1 Action
   32: [1, Controller.BUTTON_A, "Space"],
   88: [1, Controller.BUTTON_A, "X"],
-
-  // P1 Button B: Z
   90: [1, Controller.BUTTON_B, "Z"],
-
-  // P1 Start & Select: Enter, Shift
   13: [1, Controller.BUTTON_START, "Enter"],
   16: [1, Controller.BUTTON_SELECT, "Shift"],
 
-  // --- PLAYER 2 ---
-
-  // P2 IJKL movement
+  // P2
   73: [2, Controller.BUTTON_UP, "I"],
   75: [2, Controller.BUTTON_DOWN, "K"],
   74: [2, Controller.BUTTON_LEFT, "J"],
   76: [2, Controller.BUTTON_RIGHT, "L"],
-
-  // P2 Button A: U
   85: [2, Controller.BUTTON_A, "U"],
-
-  // P2 Button B: O
   79: [2, Controller.BUTTON_B, "O"],
-
-  // P2 Start: P
   80: [2, Controller.BUTTON_START, "P"],
-
-  // P2 Select: semicolon (;)
   186: [2, Controller.BUTTON_SELECT, "Semicolon"],
 };
 
-// TV Remote Mode Key Mappings
-const TV_REMOTE_MAPPINGS = {
+// NES TV Remote Mappings
+const NES_TV_REMOTE_MAPPINGS = {
   38: [1, Controller.BUTTON_UP, "Up"],
   19: [1, Controller.BUTTON_UP, "DPadUp"],
   40: [1, Controller.BUTTON_DOWN, "Down"],
@@ -183,11 +182,9 @@ const TV_REMOTE_MAPPINGS = {
   21: [1, Controller.BUTTON_LEFT, "DPadLeft"],
   39: [1, Controller.BUTTON_RIGHT, "Right"],
   22: [1, Controller.BUTTON_RIGHT, "DPadRight"],
-
   13: [1, Controller.BUTTON_A, "OK"],
   23: [1, Controller.BUTTON_A, "Select"],
   65385: [1, Controller.BUTTON_A, "Enter"],
-
   417: [1, Controller.BUTTON_B, "FastForward"],
   415: [1, Controller.BUTTON_B, "Play"],
   403: [1, Controller.BUTTON_B, "Red"],
@@ -196,19 +193,70 @@ const TV_REMOTE_MAPPINGS = {
   96: [1, Controller.BUTTON_B, "Num0"],
   50: [1, Controller.BUTTON_B, "2"],
   90: [1, Controller.BUTTON_B, "Z"],
-
   179: [1, Controller.BUTTON_START, "PlayPause"],
   405: [1, Controller.BUTTON_START, "Yellow"],
   49: [1, Controller.BUTTON_START, "1"],
   18: [1, Controller.BUTTON_START, "Menu"],
-
   10009: [1, Controller.BUTTON_SELECT, "Back"],
   27: [1, Controller.BUTTON_SELECT, "Escape"],
   404: [1, Controller.BUTTON_SELECT, "Green"],
   16: [1, Controller.BUTTON_SELECT, "Shift"],
 };
 
-// Selection helper
+// Stop and clean up any active emulator
+async function stopActiveEmulator() {
+  if (jsnesBrowser) {
+    try {
+      if (jsnesBrowser.stop) jsnesBrowser.stop();
+      if (jsnesBrowser._speakers?.stop) jsnesBrowser._speakers.stop();
+    } catch (e) {
+      console.warn("JSNES cleanup error:", e);
+    }
+    jsnesBrowser = null;
+  }
+
+  if (nostalgistInstance) {
+    try {
+      nostalgistInstance.exit();
+    } catch (e) {
+      console.warn("Nostalgist cleanup error:", e);
+    }
+    nostalgistInstance = null;
+  }
+
+  gameContainer.innerHTML = "";
+}
+
+function updateTitle(title, system = "NES") {
+  if (modalTitle) {
+    modalTitle.textContent = formatGameTitle(title).toUpperCase();
+  }
+  document.title = `${formatGameTitle(title)} (${system} Retro)`;
+  if (system === "NES") {
+    document.body.classList.add("mode-nes");
+    document.body.classList.remove("mode-snes");
+  } else {
+    document.body.classList.add("mode-snes");
+    document.body.classList.remove("mode-nes");
+  }
+}
+
+// Populate ROM select dropdown
+function populateRomSelect() {
+  romSelect.innerHTML = "";
+  ROM_LIST.forEach((rom, idx) => {
+    const opt = document.createElement("option");
+    opt.value = idx;
+    opt.textContent = formatGameTitle(rom.displayName);
+    romSelect.appendChild(opt);
+  });
+
+  if (ROM_LIST.length > 0) {
+    currentSelectedRom = ROM_LIST[0];
+    updateTitle(currentSelectedRom.rawTitle, currentSelectedRom.system);
+  }
+}
+
 function selectMode(mode) {
   currentMode = mode;
   if (mode === "keyboard") {
@@ -220,7 +268,6 @@ function selectMode(mode) {
   }
 }
 
-// Request true full screen on the document
 function enterFullScreen() {
   const elem = document.documentElement;
   if (elem.requestFullscreen) {
@@ -232,139 +279,209 @@ function enterFullScreen() {
   }
 }
 
-// Launch Game in Full Screen
 async function launchGame() {
-  // Enter full screen if user prefers
   enterFullScreen();
-
-  // Hide startup modal completely
   startupModal.classList.add("hidden");
 
-  // Unlock audio
-  if (browser && browser._speakers?.audioCtx) {
+  if (jsnesBrowser && jsnesBrowser._speakers?.audioCtx) {
     try {
-      if (browser._speakers.audioCtx.state === "suspended") {
-        await browser._speakers.audioCtx.resume();
+      if (jsnesBrowser._speakers.audioCtx.state === "suspended") {
+        await jsnesBrowser._speakers.audioCtx.resume();
       }
     } catch (e) {
       console.warn("AudioContext resume error:", e);
     }
   }
 
-  // Apply chosen controller mappings (defaulting to laptop keyboard)
-  const mappings =
-    currentMode === "keyboard" ? KEYBOARD_MAPPINGS : TV_REMOTE_MAPPINGS;
-  if (browser) {
-    browser.keyboard.setKeys(mappings);
-    browser.fitInParent();
+  if (jsnesBrowser) {
+    const mappings =
+      currentMode === "keyboard" ? NES_KEYBOARD_MAPPINGS : NES_TV_REMOTE_MAPPINGS;
+    jsnesBrowser.keyboard.setKeys(mappings);
+    jsnesBrowser.fitInParent();
   }
 
   audioUnlocked = true;
 }
 
-// Load and Initialize ROM
-async function initGame() {
+// Load NES ROM
+async function loadNesGame(romData, name = "NES Game") {
+  await stopActiveEmulator();
+  activeSystem = "NES";
+
+  jsnesBrowser = new Browser({
+    container: gameContainer,
+    romData: romData,
+    onError: (err) => {
+      console.error("NES Emulation error:", err);
+    },
+  });
+
+  const mappings =
+    currentMode === "keyboard" ? NES_KEYBOARD_MAPPINGS : NES_TV_REMOTE_MAPPINGS;
+  jsnesBrowser.keyboard.setKeys(mappings);
+
+  setTimeout(() => {
+    if (jsnesBrowser) jsnesBrowser.fitInParent();
+  }, 100);
+
+  updateTitle(name, "NES");
+}
+
+// Load SNES ROM via Nostalgist Snes9x core
+async function loadSnesGame(romSource, name = "SNES Game", filename = "game.sfc") {
+  await stopActiveEmulator();
+  activeSystem = "SNES";
+
+  // Create canvas element inside game container
+  const canvas = document.createElement("canvas");
+  canvas.id = "snes-canvas";
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.objectFit = "contain";
+  canvas.style.imageRendering = "pixelated";
+  gameContainer.appendChild(canvas);
+
   try {
-    const urlsToTry = [
-      gameRomUrl,
-      "/roms/1200-in-1.nes",
-      "./roms/1200-in-1.nes",
-      "../roms/1200-in-1.nes"
-    ];
-    let res = null;
+    let resolvedRom = romSource;
 
-    for (const url of urlsToTry) {
-      if (!url) continue;
-      try {
-        const testRes = await fetch(url);
-        if (testRes.ok) {
-          res = testRes;
-          break;
-        }
-      } catch {
-        // try next
-      }
+    // If it's a URL or path string, fetch it locally first so Nostalgist doesn't redirect to external GitHub repos
+    if (typeof romSource === "string") {
+      const res = await fetch(romSource);
+      if (!res.ok) throw new Error(`HTTP error ${res.status} fetching ${romSource}`);
+      const buf = await res.arrayBuffer();
+      resolvedRom = {
+        fileName: filename || "game.sfc",
+        fileContent: new Blob([buf], { type: "application/octet-stream" }),
+      };
     }
 
-    if (!res || !res.ok) {
-      throw new Error("Failed to load 1200-in-1.nes from available paths");
-    }
-
-    const buf = await res.arrayBuffer();
-    const romData = new Uint8Array(buf);
-
-    browser = new Browser({
-      container: gameContainer,
-      romData: romData,
-      onError: (err) => {
-        console.error("NES Emulation error:", err);
+    nostalgistInstance = await Nostalgist.snes({
+      rom: resolvedRom,
+      element: canvas,
+      resolveRom(file) {
+        return file; // Prevent Nostalgist from replacing local files with jsdelivr URLs
+      },
+      retroarchConfig: {
+        // Controls configuration for SNES
+        input_player1_a: "x",
+        input_player1_b: "z",
+        input_player1_x: "s",
+        input_player1_y: "a",
+        input_player1_l: "q",
+        input_player1_r: "w",
+        input_player1_start: "enter",
+        input_player1_select: "rshift",
+        input_player1_up: "up",
+        input_player1_down: "down",
+        input_player1_left: "left",
+        input_player1_right: "right",
       },
     });
 
-    // Set keyboard mappings by default
-    browser.keyboard.setKeys(KEYBOARD_MAPPINGS);
-
-    setTimeout(() => {
-      if (browser) browser.fitInParent();
-    }, 100);
+    updateTitle(name, "SNES");
   } catch (err) {
-    console.error("Initialization error:", err);
+    console.error("Failed to load SNES ROM with Nostalgist:", err);
+    alert("Could not load SNES ROM: " + err.message);
   }
 }
 
-// Setup Event Listeners for Startup Modal
+// Universal loader
+async function loadGame(romSource, name, filename) {
+  const ext = (filename || "").split(".").pop().toLowerCase();
+  const isSnes = ext === "sfc" || ext === "smc";
+
+  if (isSnes) {
+    await loadSnesGame(romSource, name, filename);
+  } else {
+    // If romSource is a URL, fetch it first for jsnes
+    if (typeof romSource === "string") {
+      const res = await fetch(romSource);
+      if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+      const buf = await res.arrayBuffer();
+      await loadNesGame(new Uint8Array(buf), name);
+    } else if (romSource instanceof Uint8Array) {
+      await loadNesGame(romSource, name);
+    } else if (romSource instanceof Blob || romSource instanceof File) {
+      const buf = await romSource.arrayBuffer();
+      await loadNesGame(new Uint8Array(buf), name);
+    }
+  }
+}
+
+// Setup Event Listeners
 function setupModalEvents() {
-  optKeyboard.addEventListener("click", () => {
-    selectMode("keyboard");
+  optKeyboard.addEventListener("click", () => selectMode("keyboard"));
+  optTvRemote.addEventListener("click", () => selectMode("tv"));
+  btnStart.addEventListener("click", () => launchGame());
+
+  // Dropdown selection
+  romSelect.addEventListener("change", async (e) => {
+    const idx = parseInt(e.target.value, 10);
+    const selected = ROM_LIST[idx];
+    if (selected) {
+      currentSelectedRom = selected;
+      if (customRomName) customRomName.textContent = "";
+      await loadGame(selected.url, selected.rawTitle, selected.filename);
+    }
   });
 
-  optTvRemote.addEventListener("click", () => {
-    selectMode("tv");
+  // Custom ROM upload (.nes, .sfc, .smc)
+  romFileInput.addEventListener("change", async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const gameTitle = file.name.replace(/\.(nes|sfc|smc)$/i, "");
+      if (customRomName) {
+        customRomName.textContent = `✓ ${file.name}`;
+      }
+      await loadGame(file, gameTitle, file.name);
+    } catch (err) {
+      alert("Failed to load ROM file: " + err.message);
+    }
   });
 
-  btnStart.addEventListener("click", () => {
-    launchGame();
+  // Switch game button
+  btnSwitchGame.addEventListener("click", () => {
+    startupModal.classList.remove("hidden");
+    if (jsnesBrowser && jsnesBrowser._speakers?.audioCtx) {
+      try {
+        jsnesBrowser._speakers.audioCtx.suspend();
+      } catch {}
+    }
   });
 
   window.addEventListener("keydown", (e) => {
-    if (!audioUnlocked && !startupModal.classList.contains("hidden")) {
-      if (
-        e.keyCode === 38 ||
-        e.keyCode === 19 ||
-        e.keyCode === 37 ||
-        e.keyCode === 21
-      ) {
+    if (!startupModal.classList.contains("hidden")) {
+      if ([38, 19, 37, 21].includes(e.keyCode)) {
         e.preventDefault();
         selectMode("keyboard");
-      } else if (
-        e.keyCode === 40 ||
-        e.keyCode === 20 ||
-        e.keyCode === 39 ||
-        e.keyCode === 22
-      ) {
+      } else if ([40, 20, 39, 22].includes(e.keyCode)) {
         e.preventDefault();
         selectMode("tv");
-      } else if (e.keyCode === 13 || e.keyCode === 23 || e.keyCode === 32) {
-        e.preventDefault();
-        launchGame();
+      } else if ([13, 23, 32].includes(e.keyCode)) {
+        if (document.activeElement !== romSelect) {
+          e.preventDefault();
+          launchGame();
+        }
       }
     }
   });
 
   window.addEventListener("resize", () => {
-    if (browser) browser.fitInParent();
+    if (jsnesBrowser) jsnesBrowser.fitInParent();
   });
 
   document.addEventListener("fullscreenchange", () => {
     setTimeout(() => {
-      if (browser) browser.fitInParent();
+      if (jsnesBrowser) jsnesBrowser.fitInParent();
     }, 100);
   });
 }
 
-// Setup Touch Controls for Mobile Screen
+// Touch Controls for Mobile
 function setupTouchControls() {
-  const BUTTON_MAP = {
+  const NES_BUTTON_MAP = {
     up: Controller.BUTTON_UP,
     down: Controller.BUTTON_DOWN,
     left: Controller.BUTTON_LEFT,
@@ -375,27 +492,39 @@ function setupTouchControls() {
     select: Controller.BUTTON_SELECT,
   };
 
-  const touchButtons = document.querySelectorAll(
-    "#touch-controls button[data-btn]"
-  );
+  const SNES_BUTTON_MAP = {
+    up: "up",
+    down: "down",
+    left: "left",
+    right: "right",
+    a: "a",
+    b: "b",
+    x: "x",
+    y: "y",
+    start: "start",
+    select: "select",
+  };
+
+  const touchButtons = document.querySelectorAll("#touch-controls button[data-btn]");
 
   touchButtons.forEach((btn) => {
     const btnKey = btn.getAttribute("data-btn");
-    const nesButton = BUTTON_MAP[btnKey];
-
-    if (nesButton === undefined) return;
 
     const handlePress = (e) => {
       e.preventDefault();
       e.stopPropagation();
       btn.classList.add("touch-active");
-      if (browser?.nes) {
-        browser.nes.buttonDown(1, nesButton);
+
+      if (activeSystem === "NES" && jsnesBrowser?.nes) {
+        const nesBtn = NES_BUTTON_MAP[btnKey];
+        if (nesBtn !== undefined) jsnesBrowser.nes.buttonDown(1, nesBtn);
+      } else if (activeSystem === "SNES" && nostalgistInstance) {
+        const snesBtn = SNES_BUTTON_MAP[btnKey];
+        if (snesBtn) nostalgistInstance.pressDown(snesBtn);
       }
+
       if (navigator.vibrate) {
-        try {
-          navigator.vibrate(15);
-        } catch {}
+        try { navigator.vibrate(15); } catch {}
       }
     };
 
@@ -403,8 +532,13 @@ function setupTouchControls() {
       e.preventDefault();
       e.stopPropagation();
       btn.classList.remove("touch-active");
-      if (browser?.nes) {
-        browser.nes.buttonUp(1, nesButton);
+
+      if (activeSystem === "NES" && jsnesBrowser?.nes) {
+        const nesBtn = NES_BUTTON_MAP[btnKey];
+        if (nesBtn !== undefined) jsnesBrowser.nes.buttonUp(1, nesBtn);
+      } else if (activeSystem === "SNES" && nostalgistInstance) {
+        const snesBtn = SNES_BUTTON_MAP[btnKey];
+        if (snesBtn) nostalgistInstance.pressUp(snesBtn);
       }
     };
 
@@ -418,7 +552,13 @@ function setupTouchControls() {
 }
 
 // Start everything
+populateRomSelect();
 setupModalEvents();
 setupTouchControls();
-initGame();
+
+// Preload the default game
+if (currentSelectedRom) {
+  loadGame(currentSelectedRom.url, currentSelectedRom.rawTitle, currentSelectedRom.filename);
+}
+
 
